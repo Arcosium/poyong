@@ -1,0 +1,31 @@
+{
+  "code": "YOUTH_SAVINGS_2025",
+  "name": "청년내일저축계좌",
+  "category": "savings",
+  "issuer": "보건복지부 / 한국자활복지개발원",
+  "summary": "일하는 저소득 청년이 매월 저축하면 정부가 같은 금액(또는 3배)을 매칭 지원해 3년 만기 시 목돈을 마련하도록 돕는 자산형성 사업.",
+  "eligibility": {
+    "age_groups": ["youth"],
+    "income_levels": ["low"],
+    "employments": ["employed", "self_employed", "part_time"],
+    "manual_conditions": [
+      "신청 당시 만 19~34세 (수급가구 청년은 만 15~39세)",
+      "근로·사업소득이 월 50만원 초과 ~ 250만원 이하",
+      "가구소득 기준 중위소득 100% 이하, 가구재산 요건 충족"
+    ]
+  },
+  "benefits": {
+    "monthly_self_deposit_won": 100000,
+    "gov_match": "차상위 이하 1:3, 그 외 1:1 매칭 (월 10만원 저축 시 3년 후 본인+정부 적립금 + 이자)",
+    "term_months": 36,
+    "estimated_maturity_won": "약 720만원~1,440만원(요건에 따라 상이) + 이자"
+  },
+  "application_url": "https://www.bokjiro.go.kr/",
+  "required_documents": [
+    "신분증",
+    "재직증명서 또는 사업자등록증·소득금액증명",
+    "가족관계증명서·주민등록등본",
+    "통장 사본",
+    "자산형성지원사업 참여 신청서"
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "finnect",
+  "private": true,
+  "version": "0.1.0",
+  "description": "FIN:NECT — 금융 소외계층↔정부 양방향 소통 모바일 앱 (monorepo)",
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "mobile": "pnpm --filter @finnect/mobile start",
+    "gov": "pnpm --filter @finnect/gov-dashboard dev",
+    "backend": "cd backend && uvicorn app.main:app --reload",
+    "db:up": "docker compose up -d postgres redis",
+    "db:down": "docker compose down"
+  }
+}

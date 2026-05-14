@@ -1,0 +1,31 @@
+# 로컬 개발용 인프라. 프로덕션은 Railway/Fly.io 의 매니지드 DB 사용.
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: finnect
+      POSTGRES_PASSWORD: finnect
+      POSTGRES_DB: finnect
+    ports:
+      - "5432:5432"
+    volumes:
+      - finnect_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finnect"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  finnect_pgdata:

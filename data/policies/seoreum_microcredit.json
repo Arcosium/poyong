@@ -1,0 +1,29 @@
+{
+  "code": "MISO_2025",
+  "name": "미소금융 (창업·운영자금)",
+  "category": "loan",
+  "issuer": "서민금융진흥원",
+  "summary": "제도권 금융 이용이 어려운 저소득·저신용층에게 무담보·저금리로 창업/운영 자금을 지원하는 마이크로크레딧.",
+  "eligibility": {
+    "income_levels": ["low"],
+    "max_need_man_won": 7000,
+    "manual_conditions": [
+      "개인신용평점 하위 20% 이하 또는 기초생활수급자·차상위계층",
+      "사업자등록을 했거나 창업 예정인 경우(운영자금은 6개월 이상 영업)"
+    ]
+  },
+  "benefits": {
+    "loan_limit_man_won": 7000,
+    "interest_rate_annual_pct": 4.5,
+    "repayment_max_months": 60,
+    "grace_period_months": 12
+  },
+  "application_url": "https://www.kinfa.or.kr/financialSupport/microCredit.do",
+  "required_documents": [
+    "신분증",
+    "사업자등록증(해당 시)",
+    "사업계획서",
+    "소득·재산 확인 서류(건강보험 납부확인서 등)",
+    "임대차계약서(점포가 있는 경우)"
+  ]
+}

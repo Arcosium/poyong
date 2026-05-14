@@ -1,0 +1,39 @@
+# --- Python / Backend ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.sqlite3
+*.db
+
+# --- Node / JS ---
+node_modules/
+.pnp.*
+.expo/
+dist/
+.next/
+out/
+*.tsbuildinfo
+
+# --- Env / Secrets ---
+.env
+.env.local
+.env.*.local
+
+# --- Data artifacts (keep dirs via .gitkeep, ignore generated files) ---
+data/raw_surveys/*
+!data/raw_surveys/.gitkeep
+data/derived/*
+!data/derived/.gitkeep
+data/personas/*
+!data/personas/.gitkeep
+
+# --- OS / Editor ---
+.DS_Store
+.idea/
+.vscode/
+*.log
