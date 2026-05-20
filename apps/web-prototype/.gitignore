@@ -1,0 +1,17 @@
+# dependencies
+node_modules/
+
+# next
+.next/
+out/
+
+# capacitor (android 네이티브 프로젝트는 사용자 PC 에서 생성 — 용량 큼)
+android/
+
+# env
+.env
+.env.local
+
+# misc
+*.log
+.DS_Store

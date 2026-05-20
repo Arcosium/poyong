@@ -1,0 +1,114 @@
+import type {
+  UserProfile,
+  PolicyProduct,
+  MatchResult,
+  RecommendationBundle,
+} from '../types';
+import { POLICIES } from '../data/policies';
+
+// policy_matcher.py 의 결정적 구현:
+// 1단계 룰 필터 — 명백한 자격 미달만 제외(미상 필드는 관대하게 통과,
+//   "확인 필요"로 표기). 환각 방지를 위해 LLM 에 안 보내고 룰로 처리.
+// 2단계 점수 — 자격 충족도 + 상황 적합도 가중합. (LLM 점수 자리)
+
+function eligible(p: PolicyProduct, prof: UserProfile): boolean {
+  const e = p.eligibility;
+  if (e.age_groups && prof.age_group && !e.age_groups.includes(prof.age_group))
+    return false;
+  if (
+    e.income_levels &&
+    prof.income_level &&
+    !e.income_levels.includes(prof.income_level)
+  )
+    return false;
+  if (
+    e.employments &&
+    prof.employment !== 'unknown' &&
+    !e.employments.includes(prof.employment)
+  )
+    return false;
+  if (
+    e.max_need_man_won != null &&
+    prof.financial_need_man_won != null &&
+    prof.financial_need_man_won > e.max_need_man_won
+  )
+    return false;
+  return true;
+}
+
+function scoreOne(p: PolicyProduct, prof: UserProfile): MatchResult {
+  const e = p.eligibility;
+  let score = 0.5;
+  const reasons: string[] = [];
+  const concerns: string[] = [];
+
+  if (e.situations && prof.situation && e.situations.includes(prof.situation)) {
+    score += 0.22;
+    reasons.push(`현재 상황(${prof.situation})에 직접 대응하는 제도예요`);
+  }
+  if (
+    e.income_levels &&
+    prof.income_level &&
+    e.income_levels.includes(prof.income_level)
+  ) {
+    score += 0.12;
+    reasons.push('소득 수준 요건에 부합해요');
+  }
+  if (
+    e.age_groups &&
+    prof.age_group &&
+    e.age_groups.includes(prof.age_group)
+  ) {
+    score += 0.1;
+    reasons.push('연령 요건에 부합해요');
+  }
+  if (
+    e.max_need_man_won != null &&
+    prof.financial_need_man_won != null &&
+    prof.financial_need_man_won <= e.max_need_man_won
+  ) {
+    score += 0.08;
+    reasons.push(
+      `필요 금액(${prof.financial_need_man_won}만원)이 한도 안에 들어와요`,
+    );
+  }
+  if (prof.urgency === 'high' && p.category === 'support') {
+    score += 0.08;
+    reasons.push('급한 상황에 빠르게 지급되는 현금지원이에요');
+  }
+  if (reasons.length === 0)
+    reasons.push('기본 자격 범위에 포함되어 검토해볼 만해요');
+
+  // 사람이 직접 확인해야 하는 조건은 우려로 표기 (과신 방지)
+  e.manual_conditions
+    .slice(0, 2)
+    .forEach((c) => concerns.push(`신청 전 확인 필요: ${c}`));
+
+  return {
+    code: p.code,
+    product: p,
+    match_score: Math.min(0.98, Number(score.toFixed(2))),
+    reasons,
+    concerns,
+  };
+}
+
+export function recommend(profile: UserProfile): RecommendationBundle {
+  const passed = POLICIES.filter((p) => eligible(p, profile));
+  const ranked = passed
+    .map((p) => scoreOne(p, profile))
+    .sort((a, b) => b.match_score - a.match_score);
+
+  const top = ranked.slice(0, 3);
+
+  let gap_signal: string | null = null;
+  if (top.length === 0) {
+    gap_signal =
+      '입력하신 조건에 자동으로 맞는 제도를 찾지 못했어요 (정책 사각지대 신호).';
+  } else if (top[0].match_score < 0.62) {
+    gap_signal =
+      '맞을 가능성이 있는 제도는 있지만 적합도가 낮아요 — 사각지대 가능성이 있어 정부 대시보드에 신호로 집계돼요.';
+  }
+
+  return { top, gap_signal, generated_at: new Date().toISOString() };
+}

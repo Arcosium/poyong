@@ -1,0 +1,35 @@
+{
+  "name": "@finnect/web-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "description": "포용이 자립형 데모 웹앱 — 온보딩→AI 멘토→정책 추천→정부 대시보드 (백엔드 무의존, Gemini 키 있으면 실 API 자동 전환). Capacitor 로 Android 패키징.",
+  "scripts": {
+    "dev": "next dev -p 3100",
+    "build": "next build",
+    "start": "next start -p 3100",
+    "lint": "next lint",
+    "export": "next build",
+    "cap:sync": "npm run build && npx cap sync android",
+    "cap:add:android": "npx cap add android",
+    "cap:open": "npx cap open android"
+  },
+  "dependencies": {
+    "next": "^14.2.35",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "recharts": "2.12.7",
+    "zustand": "4.5.4"
+  },
+  "devDependencies": {
+    "@capacitor/android": "6.1.2",
+    "@capacitor/cli": "6.1.2",
+    "@capacitor/core": "6.1.2",
+    "@types/node": "20.14.10",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "autoprefixer": "10.4.19",
+    "postcss": "8.4.39",
+    "tailwindcss": "3.4.6",
+    "typescript": "5.5.3"
+  }
+}
