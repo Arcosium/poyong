@@ -53,5 +53,5 @@ async def healthz() -> dict:
         "status": "ok",
         "environment": settings.environment,
         "db": "sqlite" if settings.is_sqlite else "postgres",
-        "gemini_configured": llm_client.is_configured(),
+        "local_llm_configured": llm_client.is_configured(),
     }

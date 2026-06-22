@@ -30,7 +30,7 @@ async def extract_intent(
     챗봇 흐름이 끊기지 않게 한다.
     """
     if not llm_client.is_configured():
-        logger.warning("GEMINI_API_KEY 미설정 — intent 추출 스킵, 기본값 반환")
+        logger.warning("LOCAL_LLM_BASE_URL 미설정 — intent 추출 스킵, 기본값 반환")
         return ExtractedIntent(follow_up_question="조금 더 자세히 말씀해 주시겠어요?")
 
     safe_history = [

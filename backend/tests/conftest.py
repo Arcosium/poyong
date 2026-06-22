@@ -1,7 +1,7 @@
 """테스트 픽스처.
 
 - DB 는 임시 파일 SQLite (app import 전에 DATABASE_URL 을 덮어써야 settings 캐시에 반영됨).
-- GEMINI_API_KEY 는 빈 값 → LLM 미설정 경로(휴리스틱·기본값) 로 동작. 실제 호출은 mock.
+- LOCAL_LLM_BASE_URL 은 빈 값 → LLM 미설정 경로(휴리스틱·기본값) 로 동작. 실제 호출은 mock.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ import tempfile
 _TMP_DB = tempfile.NamedTemporaryFile(prefix="finnect-test-", suffix=".sqlite3", delete=False)
 _TMP_DB.close()
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_TMP_DB.name}"
-os.environ["GEMINI_API_KEY"] = ""
+os.environ["LOCAL_LLM_BASE_URL"] = ""
 os.environ["DEVICE_ID_SECRET"] = "test-device-secret"
 os.environ["JWT_SECRET"] = "test-jwt-secret"
 os.environ["GOV_DASHBOARD_BASIC_AUTH_USER"] = "gov"

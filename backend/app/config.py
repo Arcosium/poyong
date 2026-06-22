@@ -36,11 +36,10 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://finnect:finnect@localhost:5432/finnect"
     redis_url: str = "redis://localhost:6379/0"
 
-    # --- Gemini ---
-    gemini_api_key: str = ""
-    gemini_chat_model: str = "gemini-2.5-pro"
-    gemini_classify_model: str = "gemini-2.5-flash"
-    gemini_max_output_tokens: int = 2048
+    # --- Local LLM (OpenAI-compatible; no API key) ---
+    local_llm_base_url: str = ""
+    local_llm_model: str = "Qwen3.6-35B-A3B-Uncensored-Claude-Genesis-Q8_0.gguf"
+    local_llm_max_output_tokens: int = 2048
 
     # --- Security ---
     device_id_secret: str = "dev-only-insecure-device-secret-change-me"

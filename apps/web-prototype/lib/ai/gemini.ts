@@ -1,47 +1,39 @@
 import type { ChatMessage } from '../types';
 import { SYSTEM_PERSONA } from './persona';
 
-// 선택적 실 Gemini 호출 (Generative Language REST v1beta).
-// 키가 없으면 engine.ts 가 아예 호출하지 않는다 = 기본은 mock.
-// 운영 전환 시 이 fetch 는 backend(FastAPI)/llm_client.py 로 대체된다.
+// 선택적 로컬 OpenAI 호환 서버 호출. API 키는 사용하지 않는다.
 
-const KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-const MODEL =
-  process.env.NEXT_PUBLIC_GEMINI_CHAT_MODEL || 'gemini-2.5-flash';
+const BASE = process.env.NEXT_PUBLIC_LOCAL_LLM_BASE_URL?.replace(/\/$/, '');
+const MODEL = process.env.NEXT_PUBLIC_LOCAL_LLM_MODEL || 'Qwen3.6-35B-A3B-Uncensored-Claude-Genesis-Q8_0.gguf';
 
-export const geminiAvailable = () => !!KEY;
+export const geminiAvailable = () => !!BASE;
 
 export async function geminiChat(
   history: ChatMessage[],
   segmentTag: string,
 ): Promise<string> {
-  if (!KEY) throw new Error('no gemini key');
-  const contents = history.map((m) => ({
-    role: m.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: m.content }],
-  }));
+  if (!BASE) throw new Error('LOCAL_LLM_BASE_URL is not set');
+  const messages = [
+    { role: 'system', content: `${SYSTEM_PERSONA}\n\n[segment hint: ${segmentTag}]` },
+    ...history.map((m) => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content })),
+  ];
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${KEY}`,
+    `${BASE}/chat/completions`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        systemInstruction: {
-          parts: [{ text: `${SYSTEM_PERSONA}\n\n[segment hint: ${segmentTag}]` }],
-        },
-        contents,
-        generationConfig: { maxOutputTokens: 512, temperature: 0.7 },
-        // 금융 사기·자해 차단 유지 (BLOCK_NONE 금지)
-        safetySettings: [
-          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-        ],
+        model: MODEL,
+        messages,
+        max_tokens: 512,
+        temperature: 0.7,
       }),
     },
   );
-  if (!res.ok) throw new Error(`gemini ${res.status}`);
+  if (!res.ok) throw new Error(`local LLM ${res.status}`);
   const data = await res.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error('gemini empty');
+  const text = data?.choices?.[0]?.message?.content;
+  if (!text) throw new Error('local LLM returned no text');
   return text.trim();
 }
