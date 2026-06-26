@@ -108,7 +108,7 @@ function ChatBody() {
       <div className="mb-2 flex items-center justify-between text-xs text-gray-400">
         <span>AI 멘토 포용이</span>
         <span>
-          엔진: {geminiAvailable() ? 'Gemini (실 API)' : '데모(규칙기반)'}
+          엔진: {geminiAvailable() ? '로컬 LLM (실 API)' : '데모(규칙기반)'}
         </span>
       </div>
 

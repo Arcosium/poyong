@@ -64,8 +64,23 @@ async def generate_text(*, user_message: str | None = None, conversation_history
     return await _complete(messages=_messages(system_instruction, conversation_history, user_message), model=model or chat_model(), temperature=temperature, max_tokens=max_output_tokens or settings.local_llm_max_output_tokens, json_mode=False)
 
 
+def _unwrap_json(text: str) -> str:
+    """추론(reasoning) 로컬 모델은 JSON 을 ```json ... ``` 코드펜스로 감싸 내보내기도 한다.
+    펜스가 있으면 벗기고, 없으면 원문을 그대로 둔다(클라우드 응답은 영향 없음)."""
+    s = text.strip()
+    if s.startswith("```"):
+        s = s[3:]
+        if s[:4].lower() == "json":
+            s = s[4:]
+        end = s.rfind("```")
+        if end != -1:
+            s = s[:end]
+        s = s.strip()
+    return s
+
+
 async def generate_structured(*, response_schema: type[T], user_message: str | None = None, conversation_history: list[dict] | None = None, system_instruction: str | None = None, model: str | None = None, temperature: float = 0.2, max_output_tokens: int | None = None) -> T:
     schema_prompt = f"Return only valid JSON matching this schema: {json.dumps(response_schema.model_json_schema(), ensure_ascii=False)}"
     system = "\n\n".join(part for part in (system_instruction, schema_prompt) if part)
     text = await _complete(messages=_messages(system, conversation_history, user_message), model=model or classify_model(), temperature=temperature, max_tokens=max_output_tokens or settings.local_llm_max_output_tokens, json_mode=True)
-    return response_schema.model_validate_json(text)
+    return response_schema.model_validate_json(_unwrap_json(text))

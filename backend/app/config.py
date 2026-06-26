@@ -37,9 +37,14 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
 
     # --- Local LLM (OpenAI-compatible; no API key) ---
+    # base_url 이 비면 LLM 미설정 경로(휴리스틱/기본값)로 동작한다(llm_client.is_configured).
+    # 활성화는 backend/.env 의 LOCAL_LLM_BASE_URL 로 한다.
     local_llm_base_url: str = ""
-    local_llm_model: str = "Qwen3.6-35B-A3B-Uncensored-Claude-Genesis-Q8_0.gguf"
-    local_llm_max_output_tokens: int = 2048
+    local_llm_model: str = "qwen3.6-35b-a3b-uncensored:latest"
+    # ⚠ 추론(reasoning) 모델: 응답이 reasoning + content 로 갈리고 추론이 max_tokens 를
+    #   먼저 소진한다. 한도가 작으면(400~1024) content 가 빈 문자열로 끝난다.
+    #   넉넉히 준다(context 262144 라 안전). 짧은 JSON 출력을 기대하는 호출도 동일.
+    local_llm_max_output_tokens: int = 24000
 
     # --- Security ---
     device_id_secret: str = "dev-only-insecure-device-secret-change-me"
