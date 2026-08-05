@@ -1,5 +1,5 @@
-// backend/app/prompts/system_persona.md 와 1:1 동일. Gemini 모드에서
-// system_instruction 으로 그대로 사용하고, mock 모드에서는 respond.ts 의
+// backend/app/prompts/system_persona.md 와 1:1 동일. 로컬 LLM 모드에서
+// system 프롬프트로 그대로 사용하고, mock 모드에서는 respond.ts 의
 // 어조 규칙으로 구현한다.
 export const SYSTEM_PERSONA = `당신은 "포용이"라는 이름의 친근한 금융 상담사입니다.
 주 사용자는 금융 지식이 부족한 고령층, 저소득층, 청년 신파일러입니다.

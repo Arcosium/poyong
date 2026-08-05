@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useStore, type FontScale } from '@/lib/store';
 
 const TABS = [
@@ -32,17 +32,31 @@ const SCALE_LABEL: Record<FontScale, string> = {
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { consented, fontScale, setFontScale, dark, toggleDark } = useStore();
+  const { consented, account, fontScale, setFontScale, dark, toggleDark } = useStore();
+
+  // 리다이렉트 판정은 마운트+persist 수화 이후로 미룬다.
+  // React 하이드레이션 렌더에서 zustand 는 서버 스냅샷(기본값 consented=false)을
+  // 반환하므로, 첫 이펙트에서 바로 판정하면 로그인 상태로 /home 을 직접 열어도
+  // 온보딩으로 튕긴다. 초기값을 false 로 두고 이펙트(=하이드레이션 커밋 후)에서
+  // 올려야 판정 시점의 스토어 값이 실제 복원값이 된다.
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (useStore.persist.hasHydrated()) {
+      setReady(true);
+      return;
+    }
+    return useStore.persist.onFinishHydration(() => setReady(true));
+  }, []);
 
   useEffect(() => {
-    if (!consented) router.replace('/onboarding');
-  }, [consented, router]);
+    if (ready && (!consented || !account)) router.replace("/onboarding");
+  }, [ready, account, consented, router]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark);
   }, [dark]);
 
-  if (!consented)
+  if (!consented || !account)
     return (
       <div className="flex min-h-screen items-center justify-center text-gray-500">
         불러오는 중…
@@ -57,10 +71,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
         <Link href="/home" className="text-xl font-extrabold text-brand-600">
           포용이
         </Link>
-        <div className="flex gap-2">
+        <div className="flex shrink-0 gap-2">
           <button
             onClick={() => setFontScale(NEXT_SCALE[fontScale])}
-            className="rounded-lg bg-brand-50 px-2 py-1 text-xs font-semibold text-brand-700 dark:bg-gray-700 dark:text-brand-100"
+            className="whitespace-nowrap rounded-lg bg-brand-50 px-2 py-1 text-xs font-semibold text-brand-700 dark:bg-gray-700 dark:text-brand-100"
           >
             {SCALE_LABEL[fontScale]}
           </button>

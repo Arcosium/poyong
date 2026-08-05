@@ -1,7 +1,7 @@
 [project]
-name = "finnect-backend"
+name = "poyongi-backend"
 version = "0.1.0"
-description = "FIN:NECT backend — FastAPI + SQLAlchemy 2.0 (async) + local OpenAI-compatible LLM"
+description = "포용이 backend — FastAPI + SQLAlchemy 2.0 (async) + local OpenAI-compatible LLM"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115",

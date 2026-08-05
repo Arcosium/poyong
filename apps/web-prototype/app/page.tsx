@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 
@@ -8,10 +8,14 @@ import { useStore } from '@/lib/store';
 export default function Index() {
   const router = useRouter();
   const consented = useStore((s) => s.consented);
+  // 하이드레이션 렌더의 서버 스냅샷(consented=false)으로 잘못 분기하지 않도록
+  // 마운트 후에만 판정한다 (AppShell 의 ready 게이트와 같은 이유).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
-    router.replace(consented ? '/home' : '/onboarding');
-  }, [consented, router]);
+    if (mounted) router.replace(consented ? '/home' : '/onboarding');
+  }, [mounted, consented, router]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-brand-600 text-white">

@@ -3,8 +3,10 @@ import type {
   PolicyProduct,
   MatchResult,
   RecommendationBundle,
+  UnmatchedReasonCode,
 } from '../types';
 import { POLICIES } from '../data/policies';
+import { SITUATION_LABEL } from '../util';
 
 // policy_matcher.py 의 결정적 구현:
 // 1단계 룰 필터 — 명백한 자격 미달만 제외(미상 필드는 관대하게 통과,
@@ -44,7 +46,7 @@ function scoreOne(p: PolicyProduct, prof: UserProfile): MatchResult {
 
   if (e.situations && prof.situation && e.situations.includes(prof.situation)) {
     score += 0.22;
-    reasons.push(`현재 상황(${prof.situation})에 직접 대응하는 제도예요`);
+    reasons.push(`현재 상황(${SITUATION_LABEL[prof.situation] ?? prof.situation})에 직접 대응하는 제도예요`);
   }
   if (
     e.income_levels &&
@@ -93,6 +95,49 @@ function scoreOne(p: PolicyProduct, prof: UserProfile): MatchResult {
   };
 }
 
+// 미매칭 사유 판정 — 정책 처방 축(안내 부족/자격 미달/한도 초과/증빙 불가)에
+// 대응하는 enum 을 신호에 남긴다. 우선순위:
+//   ① 자영업 + 소득 증빙 불가 → proof_barrier (이중 배제 집단 — 최우선 관측 대상)
+//   ② 전부 탈락했지만 한도 제약만 풀면 통과 → limit_exceeded
+//   ③ 전부 탈락 → eligibility_fail
+//   ④ 후보는 있으나 적합도 낮음 → guidance_gap (안내가 병목)
+function gapCode(
+  profile: UserProfile,
+  top: MatchResult[],
+): UnmatchedReasonCode | null {
+  let code: UnmatchedReasonCode | null = null;
+  if (top.length === 0) {
+    const withoutNeed: UserProfile = {
+      ...profile,
+      financial_need_man_won: null,
+    };
+    code = POLICIES.some((p) => eligible(p, withoutNeed))
+      ? 'limit_exceeded'
+      : 'eligibility_fail';
+  } else if (top[0].match_score < 0.62) {
+    code = 'guidance_gap';
+  }
+  if (
+    code !== null &&
+    profile.employment === 'self_employed' &&
+    profile.income_proof_gap === true
+  ) {
+    return 'proof_barrier';
+  }
+  return code;
+}
+
+const GAP_MESSAGE: Record<UnmatchedReasonCode, string> = {
+  eligibility_fail:
+    '입력하신 조건에 자동으로 맞는 제도를 찾지 못했어요 (자격 요건 미충족 추정 — 정책 사각지대 신호).',
+  limit_exceeded:
+    '필요하신 금액이 현재 제도들의 한도를 넘어요 (한도 초과 — 정책 사각지대 신호).',
+  guidance_gap:
+    '맞을 가능성이 있는 제도는 있지만 적합도가 낮아요 — 안내가 더 필요한 사각지대 신호로 집계돼요.',
+  proof_barrier:
+    '자영업 소득 증빙이 어려워 제도 연결이 막히는 상황이에요 (증빙 장벽 신호). 서민금융통합지원센터 ☎ 1397 상담을 권해요.',
+};
+
 export function recommend(profile: UserProfile): RecommendationBundle {
   const passed = POLICIES.filter((p) => eligible(p, profile));
   const ranked = passed
@@ -100,15 +145,8 @@ export function recommend(profile: UserProfile): RecommendationBundle {
     .sort((a, b) => b.match_score - a.match_score);
 
   const top = ranked.slice(0, 3);
+  const gap_code = gapCode(profile, top);
+  const gap_signal = gap_code ? GAP_MESSAGE[gap_code] : null;
 
-  let gap_signal: string | null = null;
-  if (top.length === 0) {
-    gap_signal =
-      '입력하신 조건에 자동으로 맞는 제도를 찾지 못했어요 (정책 사각지대 신호).';
-  } else if (top[0].match_score < 0.62) {
-    gap_signal =
-      '맞을 가능성이 있는 제도는 있지만 적합도가 낮아요 — 사각지대 가능성이 있어 정부 대시보드에 신호로 집계돼요.';
-  }
-
-  return { top, gap_signal, generated_at: new Date().toISOString() };
+  return { top, gap_signal, gap_code, generated_at: new Date().toISOString() };
 }

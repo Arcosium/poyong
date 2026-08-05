@@ -75,3 +75,28 @@ nohup.out
 *.swp
 *.swo
 Thumbs.db
+.env.example
+_archive/mobile-rn/.env.example
+apps/gov-dashboard/.env.example
+apps/web-prototype/.env.example
+[2026] 대학(원)생 재정데이터 분석 경진대회 참가신청서.pdf
+apps/web-prototype/.env.local.bak-20260703
+apps/web-prototype/lib/data/policy-gap-analysis.ts
+data/finance_contest
+오픈API 활용자가이드_금융위원회_서민금융상품기본정보.docx
+오픈API 활용자가이드_금융위원회_서민금융지원실적정보.docx
+음성 260706_143048_original.txt
+음성 260706_152552_original.txt
+음성 260706_155210_original.txt
+재정데이터분석공모전/포용이_본선_분석설계서.docx
+재정데이터분석공모전/포용이_본선_분석설계서.pdf
+backend/.env
+backend/poyongi.sqlite3
+apps/web-prototype/.env.local
+apps/web-prototype/lib/data/demand-seed.ts
+apps/web-prototype/lib/data/cgi-tobe.ts
+data/policy_stats
+Voice2Policy_최종보고서.docx
+멘토링 사전 질문지_Voice2Policy_2차시.hwpx
+멘토링 사전 질문지_Voice2Policy_3차시.hwpx
+멘토링 사전 질문지_Voice2Policy_3차시.pdf

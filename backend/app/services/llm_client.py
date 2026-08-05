@@ -12,7 +12,7 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_ex
 
 from app.config import settings
 
-logger = logging.getLogger("finnect.llm")
+logger = logging.getLogger("poyongi.llm")
 T = TypeVar("T", bound=BaseModel)
 
 
@@ -35,11 +35,11 @@ def _url() -> str:
 
 
 @retry(retry=retry_if_exception_type((httpx.TimeoutException, httpx.HTTPStatusError)), wait=wait_exponential(min=1, max=20), stop=stop_after_attempt(4), reraise=True)
-async def _complete(*, messages: list[dict[str, str]], model: str, temperature: float, max_tokens: int, json_mode: bool) -> str:
+async def _complete(*, messages: list[dict[str, str]], model: str, temperature: float, max_tokens: int, json_mode: bool, timeout_seconds: float = 90) -> str:
     payload: dict = {"model": model, "messages": messages, "temperature": temperature, "max_tokens": max_tokens}
     if json_mode:
         payload["response_format"] = {"type": "json_object"}
-    async with httpx.AsyncClient(timeout=90) as client:
+    async with httpx.AsyncClient(timeout=timeout_seconds) as client:
         response = await client.post(_url(), json=payload)
         response.raise_for_status()
     data = response.json()
@@ -79,8 +79,10 @@ def _unwrap_json(text: str) -> str:
     return s
 
 
-async def generate_structured(*, response_schema: type[T], user_message: str | None = None, conversation_history: list[dict] | None = None, system_instruction: str | None = None, model: str | None = None, temperature: float = 0.2, max_output_tokens: int | None = None) -> T:
+async def generate_structured(*, response_schema: type[T], user_message: str | None = None, conversation_history: list[dict] | None = None, system_instruction: str | None = None, model: str | None = None, temperature: float = 0.2, max_output_tokens: int | None = None, timeout_seconds: float = 90) -> T:
+    # timeout_seconds: 추론(reasoning) 모델은 생성이 수분 걸릴 수 있다 — 대화형 경로는
+    # 기본 90s 를 유지하고, 백그라운드 분석 경로(policy_insights)만 길게 준다.
     schema_prompt = f"Return only valid JSON matching this schema: {json.dumps(response_schema.model_json_schema(), ensure_ascii=False)}"
     system = "\n\n".join(part for part in (system_instruction, schema_prompt) if part)
-    text = await _complete(messages=_messages(system, conversation_history, user_message), model=model or classify_model(), temperature=temperature, max_tokens=max_output_tokens or settings.local_llm_max_output_tokens, json_mode=True)
+    text = await _complete(messages=_messages(system, conversation_history, user_message), model=model or classify_model(), temperature=temperature, max_tokens=max_output_tokens or settings.local_llm_max_output_tokens, json_mode=True, timeout_seconds=timeout_seconds)
     return response_schema.model_validate_json(_unwrap_json(text))

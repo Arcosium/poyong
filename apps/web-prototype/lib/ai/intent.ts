@@ -6,7 +6,7 @@ import type {
   IncomeLevel,
 } from '../types';
 
-// 규칙기반 한국어 의도 추출. intent_extractor.py(gemini-2.5-flash) 의
+// 규칙기반 한국어 의도 추출. 백엔드 intent_extractor.py(LLM 버전) 의
 // 결정적 대체 구현. 키워드 사전 + 한국어 금액 파서로 동작.
 
 const RX = (words: string[]) => new RegExp(words.join('|'));

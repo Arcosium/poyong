@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.api.v1.profile import get_or_create_profile
 from app.db import get_db
-from app.models import Conversation, Message, PolicyProduct, Recommendation, User
+from app.models import Conversation, DemandSignal, Message, PolicyProduct, Recommendation, User
 from app.schemas import (
     ExtractedIntent,
     PolicyProductOut,
@@ -96,6 +96,37 @@ async def generate_recommendations(
         gap_signal=gap_signal,
     )
     db.add(rec)
+    if user.consent_for_statistics and intent is not None:
+        # 신용 프록시 밴드 — 연체(A안) > 2금융권(B안) > 해당없음, 무응답이면 None
+        if profile.delinquency_experience is True:
+            credit_band = "delinquent"
+        elif profile.second_tier_credit_use is True:
+            credit_band = "second_tier"
+        elif profile.delinquency_experience is False and profile.second_tier_credit_use is False:
+            credit_band = "clean"
+        else:
+            credit_band = None
+        self_employed = profile.employment == "self_employed"
+        proof_gap = profile.income_proof_gap if self_employed else None
+        # 서버 매처는 룰 필터 단계만 있으므로 미매칭 = 자격 미달로 분류하고,
+        # 자영업 증빙 불가가 확인되면 이중 배제(proof_barrier)로 승격한다.
+        reason_code = None
+        if not matched:
+            reason_code = "proof_barrier" if (self_employed and proof_gap) else "eligibility_fail"
+        db.add(
+            DemandSignal(
+                intent_situation=intent.situation,
+                intent_urgency=intent.urgency,
+                age_group=profile.age_group,
+                income_level=profile.income_level,
+                region_sido=profile.region_sido,
+                matched_product_code=matched[0].product.code if matched else None,
+                unmatched_reason=gap_signal if not matched else None,
+                unmatched_reason_code=reason_code,
+                credit_band=credit_band,
+                self_employed_proof_gap=proof_gap,
+            )
+        )
     await db.commit()
     await db.refresh(rec)
     return RecommendationOut(

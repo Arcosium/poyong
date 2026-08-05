@@ -15,7 +15,7 @@ from app.core.security import mask_pii
 from app.schemas import ExtractedIntent
 from app.services import llm_client
 
-logger = logging.getLogger("finnect.intent")
+logger = logging.getLogger("poyongi.intent")
 
 CONFIDENCE_THRESHOLD = 0.7
 

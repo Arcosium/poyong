@@ -24,13 +24,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.api.v1.profile import get_or_create_profile
-from app.core.security import mask_pii
+from app.core.security import mask_pii, strip_hidden_markdown_tokens
 from app.db import get_db
 from app.models import Conversation, DemandSignal, Message, User, UserProfile
 from app.schemas import ChatMessageRequest, ChatMessageResponse, ExtractedIntent, SuggestedAction
 from app.services import intent_extractor, persona
 
-logger = logging.getLogger("finnect.chat")
+logger = logging.getLogger("poyongi.chat")
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 HISTORY_TURNS = 10
@@ -70,6 +70,10 @@ def _merge_intent_into_profile(profile: UserProfile, intent: ExtractedIntent) ->
             if field == "family_status" and len(str(value)) > 64:
                 continue
             setattr(profile, field, value)
+    profile.latest_situation = intent.situation
+    profile.latest_urgency = intent.urgency
+    profile.latest_need_amount_man_won = intent.financial_need_amount_man_won
+    profile.situation_summary = persona.build_situation_summary(intent)
 
 
 # ── 설계 선택 지점 ───────────────────────────────────────────────────────────
@@ -95,6 +99,8 @@ async def post_message(
     db: AsyncSession = Depends(get_db),
 ) -> ChatMessageResponse:
     conv = await _load_or_create_conversation(db, user, body.conversation_id)
+    # 사용자 입력은 마크다운을 벗기지 않고 원문을 보존한다(PII 마스킹만).
+    # strip_hidden_markdown_tokens 는 assistant/LLM 출력 전용.
     user_text = mask_pii(body.message.strip())
 
     history = await _recent_history(db, conv.id)
@@ -127,6 +133,8 @@ async def post_message(
             "급하시면 서민금융통합지원센터 1397 로 전화하실 수 있어요."
         )
 
+    assistant_text = strip_hidden_markdown_tokens(assistant_text)
+
     db.add(
         Message(
             conversation_id=conv.id,
@@ -136,16 +144,17 @@ async def post_message(
         )
     )
     _merge_intent_into_profile(profile, intent)
-    db.add(
-        DemandSignal(
-            intent_situation=intent.situation,
-            intent_urgency=intent.urgency,
-            age_group=profile.age_group,
-            income_level=profile.income_level,
-            region_sido=profile.region_sido,
-            matched_product_code=None,  # 매칭은 별도 엔드포인트에서 — 여기선 수요 신호만
+    if user.consent_for_statistics:
+        db.add(
+            DemandSignal(
+                intent_situation=intent.situation,
+                intent_urgency=intent.urgency,
+                age_group=profile.age_group,
+                income_level=profile.income_level,
+                region_sido=profile.region_sido,
+                matched_product_code=None,  # 매칭은 별도 엔드포인트에서 — 여기선 수요 신호만
+            )
         )
-    )
     await db.commit()
 
     turn_count = await db.scalar(

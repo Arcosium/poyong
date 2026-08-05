@@ -140,3 +140,87 @@ async def test_stats_requires_basic_auth(client):
     ok = await client.get("/api/v1/stats/demand-overview", headers={"Authorization": f"Basic {good}"})
     assert ok.status_code == 200
     assert "total" in ok.json()
+
+
+@pytest.mark.asyncio
+async def test_admin_bootstrap_and_member_management(client, db):
+    from app.api.v1.auth import ensure_default_admin_user
+
+    await ensure_default_admin_user(db)
+    login = await client.post("/api/v1/auth/login", json={"username": "hh09080", "password": "«REDACTED»"})
+    assert login.status_code == 200, login.text
+    token = login.json()["token"]
+
+    members = await client.get("/api/v1/admin/members", headers={"Authorization": f"Bearer {token}"})
+    assert members.status_code == 200, members.text
+    admin_rows = [m for m in members.json()["members"] if m["username"] == "hh09080"]
+    assert admin_rows and admin_rows[0]["role"] == "admin"
+
+    protected = await client.delete("/api/v1/admin/members/hh09080", headers={"Authorization": f"Bearer {token}"})
+    assert protected.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_government_register_can_access_stats(client):
+    """정부 가입은 GOV_SIGNUP_CODE 일치 시에만 허용된다 (B2). 코드 검증 케이스는 test_security.py."""
+    reg = await client.post(
+        "/api/v1/auth/register/government",
+        json={
+            "username": "gov01",
+            "password": "Govpass!1",
+            "account_type": "government",
+            "organization_name": "테스트 기관",
+            "consent_for_statistics": True,
+            "gov_signup_code": "test-gov-code",
+        },
+    )
+    assert reg.status_code == 201, reg.text
+    token = reg.json()["token"]
+    stats = await client.get("/api/v1/stats/demand-overview", headers={"Authorization": f"Bearer {token}"})
+    assert stats.status_code == 200, stats.text
+
+
+@pytest.mark.asyncio
+async def test_individual_register_cannot_access_stats(client):
+    reg = await client.post(
+        "/api/v1/auth/register/individual",
+        json={
+            "username": "person01",
+            "password": "Person!1",
+            "account_type": "individual",
+            "display_name": "개인",
+            "consent_for_statistics": True,
+        },
+    )
+    assert reg.status_code == 201, reg.text
+    token = reg.json()["token"]
+    stats = await client.get("/api/v1/stats/demand-overview", headers={"Authorization": f"Bearer {token}"})
+    assert stats.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_authenticated_user_can_update_statistics_consent(client):
+    reg = await client.post(
+        "/api/v1/auth/register/individual",
+        json={
+            "username": "consent01",
+            "password": "Consent!1",
+            "account_type": "individual",
+            "display_name": "동의테스트",
+            "consent_for_statistics": False,
+        },
+    )
+    assert reg.status_code == 201, reg.text
+    token = reg.json()["token"]
+
+    updated = await client.patch(
+        "/api/v1/auth/consent",
+        json={"consent_for_statistics": True},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["consent_for_statistics"] is True
+
+    me = await client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert me.status_code == 200, me.text
+    assert me.json()["consent_for_statistics"] is True

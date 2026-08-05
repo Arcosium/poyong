@@ -1,4 +1,4 @@
-"""FastAPI entry — FIN:NECT API.
+"""FastAPI entry — 포용이 API.
 
 기동 시:
 - SQLite 폴백이면 스키마 자동 생성(create_all). Postgres 면 Alembic 으로 마이그레이션해 둘 것.
@@ -14,23 +14,39 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import api_router
-from app.config import settings
-from app.db import SessionLocal, create_all
+from app.config import settings, validate_production_settings
+from app.db import SessionLocal, create_all, run_startup_migrations
+from app.api.v1.auth import ensure_default_admin_user
 from app.services import data_collector
 from app.services import llm_client
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-logger = logging.getLogger("finnect")
+logger = logging.getLogger("poyongi")
+
+# 프로덕션 부팅 가드 — dev 시크릿/미설정 CORS·admin 비번이면 여기서 RuntimeError 로 죽는다(fail-closed).
+validate_production_settings(settings)
+
+if settings.environment == "production" and settings.gov_dashboard_basic_auth_pass == "change-me":
+    logger.warning("GOV_DASHBOARD_BASIC_AUTH_PASS 가 기본값(change-me)입니다 — 변경을 강력히 권장합니다.")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if settings.is_sqlite:
-        logger.info("SQLite 감지 — create_all 로 스키마 생성 (Postgres 면 alembic upgrade head 권장)")
-        await create_all()
+    # create_all 은 checkfirst — 있는 테이블은 건드리지 않는다. 컬럼 추가는 startup 마이그레이션이 담당.
+    logger.info("스키마 확인 — create_all + startup migrations (db=%s)", "sqlite" if settings.is_sqlite else "postgres")
+    await create_all()
+    await run_startup_migrations()
     async with SessionLocal() as db:
-        n = await data_collector.sync_policy_products(db)
-    logger.info("정책 시드 %d건 로드. Gemini 설정됨=%s", n, llm_client.is_configured())
+        await ensure_default_admin_user(db)
+        sync = await data_collector.sync_policy_products(db)
+    logger.info(
+        "정책 동기화 synced=%d(seed=%d live=%d errors=%d). Local LLM 설정됨=%s",
+        sync.synced,
+        sync.seed_records,
+        sync.live_records,
+        len(sync.errors),
+        llm_client.is_configured(),
+    )
     yield
 
 

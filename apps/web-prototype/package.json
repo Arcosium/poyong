@@ -1,8 +1,8 @@
 {
-  "name": "@finnect/web-prototype",
+  "name": "@poyongi/web-prototype",
   "version": "0.1.0",
   "private": true,
-  "description": "포용이 자립형 데모 웹앱 — 온보딩→AI 멘토→정책 추천→정부 대시보드 (백엔드 무의존, Gemini 키 있으면 실 API 자동 전환). Capacitor 로 Android 패키징.",
+  "description": "포용이 웹앱 — 온보딩→AI 멘토→정책 추천→정부 대시보드. 인증/동의는 FastAPI 백엔드(/api/v1) 사용, 상담 답변은 로컬 LLM(OpenAI 호환) 설정 시 실 API·미설정 시 규칙기반. Capacitor 로 Android 패키징.",
   "scripts": {
     "dev": "next dev -p 3100",
     "build": "next build",

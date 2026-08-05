@@ -1,4 +1,12 @@
-import type { DemandSignal, Situation, Urgency, AgeGroup, IncomeLevel } from '../types';
+import type {
+  DemandSignal,
+  Situation,
+  Urgency,
+  AgeGroup,
+  IncomeLevel,
+  CreditBand,
+  UnmatchedReasonCode,
+} from '../types';
 import { SIDO } from '../util';
 
 // 정부 대시보드 시연용 합성 수요 신호(DemandSignal) 시드.
@@ -28,6 +36,14 @@ const PRODUCTS = [
   'MISO_2025', 'SUNSHINE_15', 'YOUTH_SAVINGS_2025', 'WORKER_SUNSHINE',
   'DEBT_RELIEF', 'EMERGENCY_WELFARE', 'YOUTH_HOUSING',
 ];
+// 미매칭 사유 분포 — 보고서의 병목 순서(안내>자격>증빙>한도)를 반영한 합성 가중치
+const REASONS: UnmatchedReasonCode[] = [
+  'guidance_gap', 'eligibility_fail', 'proof_barrier', 'limit_exceeded',
+];
+const REASON_W = [42, 30, 16, 12];
+// 신용 프록시 밴드 — 연체(A안)/2금융권(B안)/해당없음, null=무응답
+const BANDS: (CreditBand | null)[] = ['delinquent', 'second_tier', 'clean', null];
+const BAND_W = [18, 30, 40, 12];
 
 function pick<T>(rng: () => number, arr: T[], weights?: number[]): T {
   if (!weights) return arr[Math.floor(rng() * arr.length)];
@@ -56,6 +72,8 @@ export function buildSeedSignals(n = 160): DemandSignal[] {
       !['서울', '경기', '인천', '세종'].includes(region) || age === 'senior';
     const unmatched = rng() < (ruralOrSenior ? 0.34 : 0.16);
     const daysAgo = Math.floor(rng() * 30);
+    const reason = unmatched ? pick(rng, REASONS, REASON_W) : null;
+    const band = pick(rng, BANDS, BAND_W);
     out.push({
       id: `seed-${i}`,
       intent_situation: situation,
@@ -67,6 +85,10 @@ export function buildSeedSignals(n = 160): DemandSignal[] {
       unmatched_reason: unmatched
         ? '입력 조건에 맞는 제도 부재 또는 적합도 낮음'
         : null,
+      unmatched_reason_code: reason,
+      credit_band: band,
+      // proof_barrier 신호는 정의상 자영업 × 증빙 불가
+      self_employed_proof_gap: reason === 'proof_barrier' ? true : null,
       created_at: new Date(now - daysAgo * 86400000).toISOString(),
     });
   }

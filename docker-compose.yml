@@ -3,15 +3,15 @@ services:
   postgres:
     image: postgres:15
     environment:
-      POSTGRES_USER: finnect
-      POSTGRES_PASSWORD: finnect
-      POSTGRES_DB: finnect
+      POSTGRES_USER: poyongi
+      POSTGRES_PASSWORD: poyongi
+      POSTGRES_DB: poyongi
     ports:
       - "5432:5432"
     volumes:
-      - finnect_pgdata:/var/lib/postgresql/data
+      - poyongi_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U finnect"]
+      test: ["CMD-SHELL", "pg_isready -U poyongi"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -28,4 +28,4 @@ services:
       retries: 5
 
 volumes:
-  finnect_pgdata:
+  poyongi_pgdata:
