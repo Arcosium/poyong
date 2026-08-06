@@ -5,6 +5,9 @@ import type { MatchResult } from '@/lib/types';
 import { CATEGORY_LABEL } from '@/lib/data/policies';
 import { stripHiddenMarkdownTokens } from '@/lib/sanitize';
 
+// 잇다 '조회 결과' 상품 카드 미러 — 연블루/연옐로 교차 배경, 핵심 수치 크게
+const CARD_BG = ['bg-brand-50 dark:bg-gray-800', 'bg-amber-50 dark:bg-gray-800'];
+
 export default function RecommendationCard({
   r,
   rank,
@@ -14,21 +17,20 @@ export default function RecommendationCard({
 }) {
   const pct = Math.round(r.match_score * 100);
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-      {/* 좁은 화면에서 제목이 카드 전체 폭을 쓰도록, 적합도는 상단 배지로 배치 */}
+    <div className={`rounded-3xl p-4 ${CARD_BG[(rank - 1) % 2]}`}>
       <div className="flex items-center justify-between gap-2">
-        <span className="min-w-0 text-xs font-bold text-brand-600">
+        <span className="min-w-0 text-xs font-bold text-gray-500 dark:text-gray-300">
           추천 {rank}순위 · {CATEGORY_LABEL[r.product.category]}
         </span>
-        <span className="shrink-0 whitespace-nowrap rounded-full bg-brand-50 px-2.5 py-1 text-sm font-extrabold text-brand-600 dark:bg-gray-700">
-          적합 {pct}%
-        </span>
       </div>
-      <h3 className="mt-1 text-lg font-bold text-gray-900 dark:text-white">
+      <h3 className="mt-0.5 text-lg font-extrabold text-ink dark:text-white">
         {r.product.name}
       </h3>
+      <p className="mt-1 text-sm font-bold text-brand-600">
+        예상 적합도 <span className="text-2xl font-extrabold">{pct}</span> %
+      </p>
 
-      <div className="mt-3 space-y-1">
+      <div className="mt-2 space-y-1">
         {r.reasons.map((x, i) => (
           <p key={i} className="text-sm text-emerald-700 dark:text-emerald-300">
             ✓ {stripHiddenMarkdownTokens(x)}
@@ -43,7 +45,7 @@ export default function RecommendationCard({
 
       <Link
         href={`/policy/${r.code}`}
-        className="mt-4 block rounded-xl bg-brand-600 py-3 text-center font-bold text-white active:bg-brand-700"
+        className="mt-4 block rounded-full bg-white py-2.5 text-center text-sm font-bold text-brand-700 shadow-sm active:scale-[0.99] dark:bg-gray-700 dark:text-white"
       >
         자세히 보기
       </Link>

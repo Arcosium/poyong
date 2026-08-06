@@ -10,7 +10,7 @@ html,
 body {
   padding: 0;
   margin: 0;
-  background: #f9fafb;
+  background: #edf0ff; /* 잇다풍 연블루 배경 */
 }
 
 /* 한국어 줄바꿈: 단어(어절) 경계에서만 줄을 바꾼다. 좁은 화면·큰 글씨에서

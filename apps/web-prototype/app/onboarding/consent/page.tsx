@@ -79,9 +79,11 @@ export default function Consent() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-gray-50 px-5 py-8 dark:bg-gray-900">
-      <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white">
-        데이터 활용 동의 및 로그인
+    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-white px-5 py-8 dark:bg-gray-900">
+      <h1 className="text-2xl font-extrabold leading-snug text-ink dark:text-white">
+        포용이 이용을 위한
+        <br />
+        약관에 동의해주세요.
       </h1>
       <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
         개인을 식별하는 정보는 받지 않고, 상담에서 추출된 정책 수요만 시도 단위 통계로 반영합니다.
@@ -178,14 +180,31 @@ export default function Consent() {
         </label>
       </div>
 
-      <button
-        type="button"
-        onClick={() => setAgree(!agree)}
-        className={agree ? "mt-5 rounded-xl border border-brand-500 bg-brand-50 p-4 text-left text-sm font-semibold text-brand-800 dark:bg-gray-800 dark:text-brand-100" : "mt-5 rounded-xl border border-gray-300 bg-white p-4 text-left text-sm font-semibold text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"}
-      >
-        <span className="mr-1 rounded bg-gray-200 px-1.5 py-0.5 text-xs text-gray-600 dark:bg-gray-700 dark:text-gray-300">선택</span>
-        {agree ? "동의함 · " : ""}익명 상담 수요를 정부 통계와 정책수요 대시보드에 반영하는 데 동의합니다. 동의하지 않아도 서비스를 이용할 수 있고, 내 정보에서 언제든 바꿀 수 있어요.
-      </button>
+      <div className="mt-5 space-y-2">
+        <div className="flex items-start gap-3 rounded-2xl bg-brand-50 p-4 text-sm text-gray-700 dark:bg-gray-800 dark:text-gray-200">
+          <span className="mt-0.5">🔒</span>
+          <p>
+            <b>[안내]</b> 이름·주민등록번호 등 개인 식별 정보는 수집하지 않아요. 매칭이 안 된
+            사유는 표준 코드로만 익명 기록돼요.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setAgree(!agree)}
+          className="flex w-full items-start gap-3 rounded-2xl border border-gray-200 bg-white p-4 text-left text-sm font-semibold text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+        >
+          <span
+            className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-xs text-white ${agree ? 'bg-brand-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+          >
+            ✓
+          </span>
+          <span>
+            <b>[선택]</b> 익명 상담 수요를 정부 통계와 정책수요 대시보드에 반영하는 데
+            동의합니다. 동의하지 않아도 서비스를 이용할 수 있고, 내 정보에서 언제든 바꿀 수
+            있어요.
+          </span>
+        </button>
+      </div>
 
       {error ? (
         <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
@@ -196,9 +215,9 @@ export default function Consent() {
       <button
         disabled={!canSubmit || loading}
         onClick={submit}
-        className="mt-6 rounded-2xl bg-brand-600 py-4 text-lg font-bold text-white disabled:opacity-40"
+        className="mt-6 rounded-full bg-brand-500 py-4 text-lg font-bold text-white shadow-lg shadow-brand-200 disabled:opacity-40 disabled:shadow-none"
       >
-        {loading ? "처리 중" : mode === "register" ? "가입하고 시작" : "로그인하고 시작"}
+        {loading ? "처리 중" : mode === "register" ? "동의하고 시작하기" : "로그인하고 시작하기"}
       </button>
 
       {process.env.NODE_ENV !== "production" ? (
