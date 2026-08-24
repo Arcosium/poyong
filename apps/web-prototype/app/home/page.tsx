@@ -4,6 +4,7 @@ import Link from 'next/link';
 import AppShell from '@/components/AppShell';
 import Hydrated from '@/components/Hydrated';
 import RecommendationCard from '@/components/RecommendationCard';
+import DemoVideoButton from '@/components/DemoVideoButton';
 import { useStore } from '@/lib/store';
 import { getRegionPolicyGap, cgiBand } from '@/lib/data/policy-gap-analysis';
 import {
@@ -66,6 +67,8 @@ function HomeBody() {
 
   return (
     <div className="space-y-4">
+      <DemoVideoButton />
+
       {/* 프로모 배너 — 잇다 홈 상단 캐러셀 미러 (연핑크 그라데이션 + 도트) */}
       <section className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-rose-50 via-rose-100 to-rose-50 p-4 dark:from-rose-950/30 dark:via-rose-900/30 dark:to-rose-950/30">
         <p className="text-[15px] font-extrabold leading-snug text-rose-600">

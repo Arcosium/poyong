@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import DemoVideoButton from '@/components/DemoVideoButton';
 
 // '서민금융 잇다' 랜딩을 참고한 구성 — 연블루 배경 + 컬러 키워드 헤드라인 +
 // 알약형 CTA 2개(파랑/핑크) + 사용법 3카드. (연구용 시연, 잇다·서금원과 무관)
@@ -29,6 +30,10 @@ export default function Onboarding() {
           <span className="text-accent-500">복합지원</span>을
           <br />한 번에 이용할 수 있어요!
         </h1>
+
+        <div className="mt-6">
+          <DemoVideoButton />
+        </div>
 
         <p className="mt-10 text-[15px] font-semibold text-ink">
           나에게 딱 맞는 <span className="text-brand-500">대출</span>과{' '}
