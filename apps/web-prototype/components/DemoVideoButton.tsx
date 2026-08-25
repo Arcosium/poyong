@@ -35,7 +35,7 @@ export default function DemoVideoButton() {
             <span className="text-xs text-white/80">상담부터 정책 사각지대 집계까지</span>
           </span>
         </span>
-        <span className="rounded-full bg-white/15 px-2.5 py-1 text-xs font-bold">14초</span>
+        <span className="rounded-full bg-white/15 px-2.5 py-1 text-xs font-bold">10초</span>
       </button>
 
       {open ? (
@@ -71,8 +71,14 @@ export default function DemoVideoButton() {
               preload="auto"
               className="aspect-video w-full bg-black"
             >
-              <source src="/demo/poyongi-demo-guide.webm" type="video/webm" />
-              <source src="/demo/poyongi-demo-guide.mp4" type="video/mp4" />
+              <source
+                src="/demo/poyongi-demo-guide-actual-20260825-v2.webm"
+                type="video/webm"
+              />
+              <source
+                src="/demo/poyongi-demo-guide-actual-20260825-v2.mp4"
+                type="video/mp4"
+              />
               브라우저에서 영상을 재생할 수 없습니다.
             </video>
           </div>
