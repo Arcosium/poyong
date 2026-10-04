@@ -10,7 +10,22 @@ html,
 body {
   padding: 0;
   margin: 0;
-  background: #f9fafb;
+  background: #edf0ff; /* 잇다풍 연블루 배경 */
+}
+
+/* 한국어 줄바꿈: 단어(어절) 경계에서만 줄을 바꾼다. 좁은 화면·큰 글씨에서
+   음절 중간이 꺾여 "글자가 세로로 깨져" 보이는 것을 방지.
+   overflow-wrap: break-word 는 공백 없는 긴 토큰(URL·상품명 등)이 넘치지 않게 하는 안전판.
+   anywhere 를 쓰면 안 된다 — 그 값은 min-content 폭까지 한 글자로 낮춰서
+   표 셀·flex 자식이 한 글자 폭으로 접히고 결국 글자가 세로로 떨어진다. */
+body {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/* 긴 토큰을 강제로 끊어야 하는 곳(URL 등)에만 국소적으로 쓴다. */
+.break-anywhere {
+  overflow-wrap: anywhere;
 }
 
 .dark body {

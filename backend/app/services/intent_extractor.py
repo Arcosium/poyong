@@ -15,7 +15,7 @@ from app.core.security import mask_pii
 from app.schemas import ExtractedIntent
 from app.services import llm_client
 
-logger = logging.getLogger("finnect.intent")
+logger = logging.getLogger("poyongi.intent")
 
 CONFIDENCE_THRESHOLD = 0.7
 
@@ -30,7 +30,7 @@ async def extract_intent(
     챗봇 흐름이 끊기지 않게 한다.
     """
     if not llm_client.is_configured():
-        logger.warning("GEMINI_API_KEY 미설정 — intent 추출 스킵, 기본값 반환")
+        logger.warning("LOCAL_LLM_BASE_URL 미설정 — intent 추출 스킵, 기본값 반환")
         return ExtractedIntent(follow_up_question="조금 더 자세히 말씀해 주시겠어요?")
 
     safe_history = [
@@ -44,7 +44,10 @@ async def extract_intent(
             system_instruction=prompts.load("intent_extraction"),
             model=llm_client.classify_model(),
             temperature=0.1,
-            max_output_tokens=512,
+            # ⚠ 로컬 추론(reasoning) 모델은 추론이 max_tokens 를 먼저 소진한다.
+            #   짧은 JSON 출력이라도 한도가 작으면(512 등) content 가 빈 문자열로 끝난다.
+            #   → settings.local_llm_max_output_tokens(기본 넉넉) 로 폴백시킨다.
+            max_output_tokens=None,
         )
     except Exception:  # noqa: BLE001 — LLM 장애 시에도 챗봇은 살아있어야 함
         logger.exception("intent 추출 실패 — 기본값 반환")

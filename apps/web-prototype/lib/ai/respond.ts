@@ -58,7 +58,8 @@ const SLOTS: Slot[] = [
   },
 ];
 
-const FRAUD_WARNING =
+// LLM 경로(engine.ts)에서도 동일 문구를 강제 prepend 하므로 export 한다.
+export const FRAUD_WARNING =
   '잠깐만요, 꼭 먼저 알려드릴게 있어요. 수수료를 먼저 보내라거나 통장·서류를 빌려달라는 연락은 거의 다 사기예요. 절대 응하지 마시고, 의심되면 즉시 ☎ 1332(금융감독원) 또는 ☎ 112 로 알려주세요. 안전하게 받을 수 있는 길을 제가 같이 찾아드릴게요.';
 
 export interface RespondResult {

@@ -1,7 +1,7 @@
 [project]
-name = "finnect-backend"
+name = "poyongi-backend"
 version = "0.1.0"
-description = "FIN:NECT backend — FastAPI + SQLAlchemy 2.0 (async) + google-genai"
+description = "포용이 backend — FastAPI + SQLAlchemy 2.0 (async) + local OpenAI-compatible LLM"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115",
@@ -14,7 +14,6 @@ dependencies = [
     "pydantic>=2.9",
     "pydantic-settings>=2.5",
     "python-jose[cryptography]>=3.3",   # 익명 세션 JWT
-    "google-genai>=0.8",        # 신규 통합 SDK (google-generativeai 는 deprecated)
     "tenacity>=9.0",            # 429/503 백오프
     "httpx>=0.27",
     "apscheduler>=3.10",        # 정책 상품 주기 동기화 (data_collector)

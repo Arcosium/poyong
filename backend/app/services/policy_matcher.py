@@ -1,8 +1,7 @@
-"""정책 상품 매칭 — 2단계 파이프라인 (Implementation.md §5, Step 5).
+"""정책 상품 매칭 — 룰 기반 파이프라인 (Implementation.md §5, Step 5).
 
-  1단계  룰 기반 자격 필터링 (LLM 호출 X) — 자격 미달 상품은 LLM 에 안 보냄
-          → 토큰 비용 절감 + 환각 방지 (LLM 이 "자격 충족"이라 거짓말하는 케이스 차단)
-  2단계  통과한 상품들만 Gemini Pro 에 점수+이유 요청 (response_schema=Top3Recommendation)
+AI 사용 범위를 채팅 의도 추출로 제한하기 위해 추천 점수화도 결정적 휴리스틱만 쓴다.
+자격 룰에서 명백히 탈락한 상품은 제외하고, 남은 상품을 상황·정보 충족도 기준으로 정렬한다.
 
 자격 룰(`PolicyProduct.eligibility`) 스키마 — data/policies/*.json 참고:
     {
@@ -21,7 +20,6 @@ from __future__ import annotations
 
 import logging
 
-from app import prompts
 from app.models import PolicyProduct
 from app.schemas import (
     EligibilityCheckItem,
@@ -31,9 +29,24 @@ from app.schemas import (
     RecommendationProductOut,
     Top3Recommendation,
 )
-from app.services import llm_client
+from app.services import llm_client  # 테스트/하위호환용: 추천 로직에서는 호출하지 않음
 
-logger = logging.getLogger("finnect.matcher")
+logger = logging.getLogger("poyongi.matcher")
+
+# 사용자에게 노출되는 매칭 사유 문구용 한국어 라벨 (영문 enum 원값 노출 금지)
+_SITUATION_KO = {
+    "debt": "빚·연체",
+    "housing": "주거",
+    "income_loss": "소득 감소",
+    "education": "교육비",
+    "general": "일반",
+}
+_CATEGORY_KO = {
+    "loan": "대출",
+    "savings": "저축·자산형성",
+    "debt_relief": "채무조정",
+    "welfare": "복지 지원",
+}
 
 # (프로필 필드, 자격 룰 키, 사람이 읽을 라벨)
 _MEMBERSHIP_RULES = [
@@ -127,7 +140,7 @@ def _heuristic_scores(
     cat_pref = {
         "debt": "debt_relief",
         "housing": "loan",
-        "income_loss": "loan",
+            "income_loss": "welfare",
         "education": "savings",
         "general": None,
     }.get(situation)
@@ -151,7 +164,8 @@ def _heuristic_scores(
                 code=p.code,
                 match_score=round(score, 2),
                 reasons=[
-                    f"'{situation}' 상황에 흔히 안내되는 {p.category} 상품이에요"
+                    f"'{_SITUATION_KO.get(situation, situation)}' 상황에 흔히 안내되는 "
+                    f"{_CATEGORY_KO.get(p.category, p.category)} 상품이에요"
                     if (cat_pref and p.category == cat_pref)
                     else "기본 자격 요건에 큰 충돌이 없어요"
                 ],
@@ -161,28 +175,6 @@ def _heuristic_scores(
         ],
         gap_signal=None if top else "자격 룰을 통과하는 상품이 없어요",
     )
-
-
-def _build_llm_payload(products: list[PolicyProduct], profile: dict, intent: ExtractedIntent | None) -> str:
-    import json
-
-    payload = {
-        "profile": {**profile, "intent": intent.model_dump() if intent else None},
-        "products": [
-            {
-                "code": p.code,
-                "name": p.name,
-                "category": p.category,
-                "issuer": p.issuer,
-                "summary": p.summary,
-                "eligibility": p.eligibility,
-                "benefits": p.benefits,
-                "required_documents": p.required_documents,
-            }
-            for p in products
-        ],
-    }
-    return json.dumps(payload, ensure_ascii=False)
 
 
 async def match(
@@ -196,22 +188,8 @@ async def match(
     if not eligible:
         return [], "현재 자격 요건을 통과하는 정책 상품이 없어요. 프로필을 더 채우거나 1397(서민금융통합지원센터) 상담을 권해드려요."
 
-    # 2단계 — 점수화 (LLM 우선, 실패 시 휴리스틱)
-    if llm_client.is_configured():
-        try:
-            result = await llm_client.generate_structured(
-                response_schema=Top3Recommendation,
-                user_message=_build_llm_payload(eligible, profile, intent),
-                system_instruction=prompts.load("policy_recommendation"),
-                model=llm_client.chat_model(),
-                temperature=0.2,
-                max_output_tokens=1024,
-            )
-        except Exception:  # noqa: BLE001
-            logger.exception("LLM 점수화 실패 — 휴리스틱 폴백")
-            result = _heuristic_scores(eligible, profile, intent)
-    else:
-        result = _heuristic_scores(eligible, profile, intent)
+    # 2단계 — AI 호출 없이 결정적 점수화
+    result = _heuristic_scores(eligible, profile, intent)
 
     by_code = {p.code: p for p in eligible}
     out: list[RecommendationProductOut] = []

@@ -1,197 +1,88 @@
-"""Gemini API 비동기 래퍼 — 신규 통합 SDK `google-genai`.
-
-`데이터생성.py`(google.generativeai 동기) 패턴을 async + 구조화 출력으로 이식.
-google-generativeai 는 deprecated → google-genai (`from google import genai`) 사용.
-
-핵심:
-- `genai.Client(api_key=...)` 싱글톤
-- `generate_text(...)`            → 자유 텍스트
-- `generate_structured(...)`      → response_schema(Pydantic) 강제 → 파싱된 모델 반환
-- 토큰 사용량 로깅 (usage_metadata)
-- 429/503 → tenacity exponential backoff
-- safety_settings 는 BLOCK_MEDIUM_AND_ABOVE 유지 (BLOCK_NONE 금지)
-- max_output_tokens 항상 명시 (비용 폭주 방지)
-"""
+"""API-key-free client for a local OpenAI-compatible chat-completions server."""
 
 from __future__ import annotations
 
+import json
 import logging
-from functools import lru_cache
-from typing import Any, TypeVar
+from typing import TypeVar
 
+import httpx
 from pydantic import BaseModel
-from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from app.config import settings
 
-logger = logging.getLogger("finnect.llm")
-
+logger = logging.getLogger("poyongi.llm")
 T = TypeVar("T", bound=BaseModel)
-
-#: google-genai 모듈 핸들 (지연 import — 패키지 없이도 app import 가능하게)
-_genai: Any = None
-_types: Any = None
-
-
-def _load_genai() -> tuple[Any, Any]:
-    global _genai, _types
-    if _genai is None:
-        from google import genai  # type: ignore
-        from google.genai import types  # type: ignore
-
-        _genai, _types = genai, types
-    return _genai, _types
-
-
-@lru_cache
-def _client() -> Any:
-    if not settings.gemini_api_key:
-        raise RuntimeError(
-            "GEMINI_API_KEY 가 설정되지 않았습니다. backend/.env 에 추가하세요."
-        )
-    genai, _ = _load_genai()
-    return genai.Client(api_key=settings.gemini_api_key)
 
 
 def is_configured() -> bool:
-    return bool(settings.gemini_api_key)
-
-
-# --- 모델 라우팅 헬퍼 ---------------------------------------------------------
+    return bool(settings.local_llm_base_url)
 
 
 def classify_model() -> str:
-    """분류·의도 추출용 (빠르고 저렴)."""
-    return settings.gemini_classify_model
+    return settings.local_llm_model
 
 
 def chat_model() -> str:
-    """대화·추천용 (품질 우선)."""
-    return settings.gemini_chat_model
+    return settings.local_llm_model
 
 
-# --- 재시도 정책 --------------------------------------------------------------
+def _url() -> str:
+    if not settings.local_llm_base_url:
+        raise RuntimeError("LOCAL_LLM_BASE_URL is not set. Configure the local server URL in backend/.env.")
+    return settings.local_llm_base_url.rstrip("/") + "/chat/completions"
 
 
-def _is_transient(exc: BaseException) -> bool:
-    """429/503/타임아웃 등 일시적 에러만 재시도."""
-    code = getattr(exc, "code", None) or getattr(exc, "status_code", None)
-    if code in (429, 503, 500):
-        return True
-    name = exc.__class__.__name__.lower()
-    return any(k in name for k in ("resourceexhausted", "serviceunavailable", "deadlineexceeded", "timeout"))
+@retry(retry=retry_if_exception_type((httpx.TimeoutException, httpx.HTTPStatusError)), wait=wait_exponential(min=1, max=20), stop=stop_after_attempt(4), reraise=True)
+async def _complete(*, messages: list[dict[str, str]], model: str, temperature: float, max_tokens: int, json_mode: bool, timeout_seconds: float = 90) -> str:
+    payload: dict = {"model": model, "messages": messages, "temperature": temperature, "max_tokens": max_tokens}
+    if json_mode:
+        payload["response_format"] = {"type": "json_object"}
+    async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+        response = await client.post(_url(), json=payload)
+        response.raise_for_status()
+    data = response.json()
+    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+    if not isinstance(content, str):
+        raise ValueError("Local LLM returned no text content")
+    return content.strip()
 
 
-_retry = retry(
-    retry=retry_if_exception(_is_transient),
-    wait=wait_exponential(multiplier=1, min=1, max=20),
-    stop=stop_after_attempt(4),
-    reraise=True,
-)
-
-
-# --- 내부 헬퍼 ----------------------------------------------------------------
-
-
-def _safety_settings() -> list[Any]:
-    _, types = _load_genai()
-    threshold = types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
-    return [
-        types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_HARASSMENT, threshold=threshold),
-        types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold=threshold),
-        types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold=threshold),
-        types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold=threshold),
-    ]
-
-
-def _log_usage(model: str, response: Any) -> None:
-    meta = getattr(response, "usage_metadata", None)
-    if meta is None:
-        return
-    logger.info(
-        "gemini call model=%s prompt_tokens=%s output_tokens=%s total_tokens=%s",
-        model,
-        getattr(meta, "prompt_token_count", "?"),
-        getattr(meta, "candidates_token_count", "?"),
-        getattr(meta, "total_token_count", "?"),
-    )
-
-
-def _to_contents(history: list[dict] | None, user_message: str | None) -> list[Any]:
-    """[{"role": "user"|"assistant", "content": "..."}] → genai Content 배열.
-
-    Gemini 의 role 은 'user' / 'model'. 'assistant' → 'model' 로 변환.
-    """
-    _, types = _load_genai()
-    contents: list[Any] = []
+def _messages(system_instruction: str | None, history: list[dict] | None, user_message: str | None) -> list[dict[str, str]]:
+    messages: list[dict[str, str]] = []
+    if system_instruction:
+        messages.append({"role": "system", "content": system_instruction})
     for turn in history or []:
-        role = "model" if turn.get("role") in ("assistant", "model") else "user"
-        contents.append(types.Content(role=role, parts=[types.Part.from_text(text=turn["content"])]))
+        messages.append({"role": "assistant" if turn.get("role") in ("assistant", "model") else "user", "content": turn["content"]})
     if user_message is not None:
-        contents.append(types.Content(role="user", parts=[types.Part.from_text(text=user_message)]))
-    return contents
+        messages.append({"role": "user", "content": user_message})
+    return messages
 
 
-# --- 공개 API -----------------------------------------------------------------
+async def generate_text(*, user_message: str | None = None, conversation_history: list[dict] | None = None, system_instruction: str | None = None, model: str | None = None, temperature: float = 0.7, max_output_tokens: int | None = None) -> str:
+    return await _complete(messages=_messages(system_instruction, conversation_history, user_message), model=model or chat_model(), temperature=temperature, max_tokens=max_output_tokens or settings.local_llm_max_output_tokens, json_mode=False)
 
 
-@_retry
-async def generate_text(
-    *,
-    user_message: str | None = None,
-    conversation_history: list[dict] | None = None,
-    system_instruction: str | None = None,
-    model: str | None = None,
-    temperature: float = 0.7,
-    max_output_tokens: int | None = None,
-) -> str:
-    """자유 텍스트 생성. 멀티턴 대화는 conversation_history 로 전달."""
-    _, types = _load_genai()
-    model = model or chat_model()
-    contents = _to_contents(conversation_history, user_message)
-    config = types.GenerateContentConfig(
-        system_instruction=system_instruction,
-        temperature=temperature,
-        max_output_tokens=max_output_tokens or settings.gemini_max_output_tokens,
-        safety_settings=_safety_settings(),
-    )
-    response = await _client().aio.models.generate_content(model=model, contents=contents, config=config)
-    _log_usage(model, response)
-    return (response.text or "").strip()
+def _unwrap_json(text: str) -> str:
+    """추론(reasoning) 로컬 모델은 JSON 을 ```json ... ``` 코드펜스로 감싸 내보내기도 한다.
+    펜스가 있으면 벗기고, 없으면 원문을 그대로 둔다(클라우드 응답은 영향 없음)."""
+    s = text.strip()
+    if s.startswith("```"):
+        s = s[3:]
+        if s[:4].lower() == "json":
+            s = s[4:]
+        end = s.rfind("```")
+        if end != -1:
+            s = s[:end]
+        s = s.strip()
+    return s
 
 
-@_retry
-async def generate_structured(
-    *,
-    response_schema: type[T],
-    user_message: str | None = None,
-    conversation_history: list[dict] | None = None,
-    system_instruction: str | None = None,
-    model: str | None = None,
-    temperature: float = 0.2,
-    max_output_tokens: int | None = None,
-) -> T:
-    """response_schema(Pydantic) 로 구조화 출력 강제 → 파싱된 인스턴스 반환.
-
-    response_mime_type="application/json" + response_schema 자동 설정.
-    free-form 파싱보다 안정적.
-    """
-    _, types = _load_genai()
-    model = model or classify_model()
-    contents = _to_contents(conversation_history, user_message)
-    config = types.GenerateContentConfig(
-        system_instruction=system_instruction,
-        temperature=temperature,
-        max_output_tokens=max_output_tokens or settings.gemini_max_output_tokens,
-        response_mime_type="application/json",
-        response_schema=response_schema,
-        safety_settings=_safety_settings(),
-    )
-    response = await _client().aio.models.generate_content(model=model, contents=contents, config=config)
-    _log_usage(model, response)
-
-    parsed = getattr(response, "parsed", None)
-    if isinstance(parsed, response_schema):
-        return parsed
-    # SDK 가 .parsed 를 못 채운 경우 — 텍스트에서 직접 파싱 (방어적)
-    return response_schema.model_validate_json(response.text or "{}")
+async def generate_structured(*, response_schema: type[T], user_message: str | None = None, conversation_history: list[dict] | None = None, system_instruction: str | None = None, model: str | None = None, temperature: float = 0.2, max_output_tokens: int | None = None, timeout_seconds: float = 90) -> T:
+    # timeout_seconds: 추론(reasoning) 모델은 생성이 수분 걸릴 수 있다 — 대화형 경로는
+    # 기본 90s 를 유지하고, 백그라운드 분석 경로(policy_insights)만 길게 준다.
+    schema_prompt = f"Return only valid JSON matching this schema: {json.dumps(response_schema.model_json_schema(), ensure_ascii=False)}"
+    system = "\n\n".join(part for part in (system_instruction, schema_prompt) if part)
+    text = await _complete(messages=_messages(system, conversation_history, user_message), model=model or classify_model(), temperature=temperature, max_tokens=max_output_tokens or settings.local_llm_max_output_tokens, json_mode=True, timeout_seconds=timeout_seconds)
+    return response_schema.model_validate_json(_unwrap_json(text))

@@ -1,10 +1,14 @@
 'use client';
 
 import type { ChatMessage } from '@/lib/types';
+import { stripHiddenMarkdownTokens } from '@/lib/sanitize';
 import GlossaryText from './GlossaryText';
 
 export default function ChatBubble({ m }: { m: ChatMessage }) {
   const mine = m.role === 'user';
+  // strip 은 assistant 표시에만 적용. 사용자 메시지는 원문 그대로 보여준다
+  // (React 가 이스케이프하므로 XSS 위험 없음).
+  const content = mine ? m.content : stripHiddenMarkdownTokens(m.content);
   return (
     <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
       {!mine && (
@@ -21,10 +25,10 @@ export default function ChatBubble({ m }: { m: ChatMessage }) {
       >
         {mine ? (
           <span className="whitespace-pre-wrap leading-relaxed">
-            {m.content}
+            {content}
           </span>
         ) : (
-          <GlossaryText text={m.content} />
+          <GlossaryText text={content} />
         )}
       </div>
     </div>
